@@ -486,7 +486,7 @@ function Setup({
         !blocking(tested) &&
         (!connectionAdapter ||
           tested.checks.some((check) =>
-            check.code.endsWith("hello_probe_passed"),
+            /hello_probe_(passed|succeeded|usage_limited)$/.test(check.code),
           ))
       );
     } catch (cause) {

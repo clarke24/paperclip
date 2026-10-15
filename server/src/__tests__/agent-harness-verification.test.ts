@@ -37,6 +37,7 @@ describe("saved harness verification", () => {
     ["pass", ["process_command_available"]], ["warn", ["claude_hello_probe_passed", "optional_environment_warning"]],
     ["warn", ["claude_acp_anthropic_api_key_detected", "claude_hello_probe_passed"]],
     ["pass", ["codex_hello_probe_succeeded"]], ["warn", ["ai_connection_api_key_reverified"]],
+    ["warn", ["claude_hello_probe_usage_limited"]],
   ] as const)("accepts %s with %j", (status, codes) => {
     expect(() => assertHarnessTestPassed(result(status, [...codes]))).not.toThrow();
   });

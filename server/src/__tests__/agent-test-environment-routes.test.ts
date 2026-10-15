@@ -560,6 +560,42 @@ describe("agent test-environment route", () => {
     }
   });
 
+  it("adopts a subscription when the hello probe proves auth via usage limit", async () => {
+    mockManagedRuntime("subscription");
+    const { registerServerAdapter, getServerAdapter, unregisterServerAdapter } = await import("../adapters/index.js");
+    const previous = getServerAdapter("claude_local");
+    unregisterServerAdapter("claude_local");
+    const cliProbeSpy = vi.fn(async () => ({
+      adapterType: "claude_local",
+      status: "warn" as const,
+      checks: [{
+        code: "claude_hello_probe_usage_limited",
+        level: "warn" as const,
+        message: "Claude hello probe hit the subscription usage limit.",
+        hint: "Authentication works; the account's usage window is exhausted.",
+      }],
+      testedAt: new Date(0).toISOString(),
+    }));
+    registerServerAdapter({ ...externalAdapter, type: "claude_local", testEnvironment: cliProbeSpy });
+    try {
+      const app = await createApp();
+      const res = await request(app)
+        .post("/api/companies/company-1/adapters/external_test/test-environment")
+        .send({
+          adapterConfig: { cwd: "/" },
+          aiConnection: { provider: "anthropic", method: "subscription", mode: "responsible_user" },
+        });
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe("warn");
+      expect(res.body.checks.map((check: { code: string }) => check.code)).toContain("claude_hello_probe_usage_limited");
+      expect(JSON.stringify(res.body)).not.toContain("ai_connection_validation_incomplete");
+      expect(cliProbeSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      unregisterServerAdapter("claude_local");
+      if (previous) registerServerAdapter(previous);
+    }
+  });
+
   it("passes one-shot provider credentials only to the probe, never persistence normalization", async () => {
     const app = await createApp();
     const res = await request(app)

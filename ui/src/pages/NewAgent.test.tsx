@@ -618,6 +618,24 @@ describe("New agent setup", () => {
     expect(api.hire).not.toHaveBeenCalled();
   });
 
+  it("advances connection when the hello probe proves auth via usage limit", async () => {
+    api.testEnvironment.mockResolvedValue({
+      ...pass,
+      status: "warn",
+      checks: [
+        {
+          code: "claude_hello_probe_usage_limited",
+          level: "warn",
+          message: "Claude hello probe hit the subscription usage limit.",
+        },
+      ],
+    });
+    await render("claude_local");
+    await connect("Claude");
+    expect(container.textContent).toContain("Finish setup");
+    expect(api.hire).not.toHaveBeenCalled();
+  });
+
   it.each(["claude_local", "codex_local"])(
     "connects %s, creates once, and assigns a task",
     async (adapter) => {

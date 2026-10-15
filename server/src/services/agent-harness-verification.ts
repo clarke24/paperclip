@@ -4,7 +4,7 @@ import type { AdapterEnvironmentTestResult } from "@paperclipai/adapter-utils";
 import { ADAPTER_AUTH_MISSING_CHECK_CODE, aiRuntimeConnectionBindingSchema } from "@paperclipai/shared";
 import { isForbiddenConfigEnvKey, parseObject } from "@paperclipai/adapter-utils/server-utils";
 import { requireServerAdapter } from "../adapters/index.js";
-import { agentEnvironmentTestService } from "./agent-environment-test.js";
+import { agentEnvironmentTestService, isHelloProbeAuthComplete } from "./agent-environment-test.js";
 import { aiConnectionRouterService } from "./ai-connection-router.js";
 import { withManagedAiProbe, stripAiAuthBindings } from "./ai-connection-runtime.js";
 import { environmentService } from "./environments.js";
@@ -14,10 +14,13 @@ import type { PluginWorkerManager } from "./plugin-worker-manager.js";
 import type { LifecycleAgent } from "../modules/agent-lifecycle/index.js";
 
 export function assertHarnessTestPassed(result: AdapterEnvironmentTestResult) {
-  const verified = result.checks.some(check => check.level === "info" &&
-    (/hello_probe_(passed|succeeded)$/.test(check.code) || check.code === "ai_connection_api_key_reverified"));
+  const verified = result.checks.some(check =>
+    check.code === "ai_connection_api_key_reverified"
+    || isHelloProbeAuthComplete(check.code));
   const authenticationFailed = result.checks.some(check =>
     check.code === ADAPTER_AUTH_MISSING_CHECK_CODE || /_hello_probe_auth_required$/.test(check.code));
+  // Quota exhaustion proves auth; do not treat it as an incomplete probe that
+  // would leave lifecycle verification retrying forever.
   const incomplete = !verified && (result.status === "warn" || result.checks.some(check => check.code.includes("hello_probe")));
   if (result.status === "fail" || authenticationFailed || incomplete) {
     const has = (suffix: string) => result.checks.some(check => check.code.endsWith(suffix));

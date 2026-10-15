@@ -15,6 +15,14 @@ import { validateAiApiKey } from "./ai-api-key-test.js";
 import type { PluginWorkerManager } from "./plugin-worker-manager.js";
 import { assertEnvironmentSelectionForCompany } from "./environment-selection.js";
 const asRecord = (value: unknown): Record<string, unknown> | null => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+
+/** Subscription hello outcomes that prove the runtime can consume the stored login. */
+export function isHelloProbeAuthComplete(code: string): boolean {
+  // usage_limited means auth worked and the provider spent the turn rejecting
+  // on quota — adoption should not demand a second successful model reply.
+  return /hello_probe_(passed|succeeded|usage_limited)$/.test(code);
+}
+
 export function agentEnvironmentTestService(db: Db, pluginWorkerManager?: PluginWorkerManager) {
   const instanceSettings = instanceSettingsService(db);
   const environmentsSvc = environmentService(db);
@@ -521,7 +529,7 @@ export function agentEnvironmentTestService(db: Db, pluginWorkerManager?: Plugin
       result.checks.push(...probe.checks);
       result.status = probe.status === "fail" ? "fail" : result.status === "warn" || probe.status === "warn" ? "warn" : "pass";
     }
-    if (!result.checks.some(check => /hello_probe_(passed|succeeded)$/.test(check.code))) {
+    if (!result.checks.some(check => isHelloProbeAuthComplete(check.code))) {
       result.status = "fail";
       result.checks.push({ code: "ai_connection_validation_incomplete", level: "error", message: "The selected account has not completed a provider hello test. Retry before adopting it." });
     }
